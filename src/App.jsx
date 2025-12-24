@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { Helmet } from 'react-helmet';
 import { Routes, Route } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -6,8 +6,9 @@ import CategoryFilter from '@/components/CategoryFilter';
 import NewsGrid from '@/components/NewsGrid';
 import LanguageSelector from '@/components/LanguageSelector';
 import Footer from '@/components/Footer';
-import { Toaster } from '@/components/ui/toaster';
-import { useToast } from '@/components/ui/use-toast';
+import AdBanner from '@/components/ads/AdBanner';
+// Toasts removed
+import { generateOrganizationSchema } from '@/lib/schema';
 import About from '@/pages/About';
 import Disclaimer from '@/pages/Disclaimer';
 import Contact from '@/pages/Contact';
@@ -19,7 +20,8 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('Latest');
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  // Toasts removed
   const articleMapRef = useRef(new Map());
   const hasFirstRenderRef = useRef(false);
 
@@ -87,7 +89,7 @@ function App() {
   };
 
   useEffect(() => {
-    fetchNews();
+    fetchNews({ notify: false });
     
     // Auto-cleanup every 15 days
     const cleanupInterval = setInterval(() => {
@@ -175,7 +177,8 @@ function App() {
     });
   };
 
-  const fetchNews = async () => {
+  const fetchNews = async (options = {}) => {
+    const notify = options.notify === true; // no-op (toasts removed)
     setLoading(true);
     articleMapRef.current = new Map();
     let successCount = 0;
@@ -214,17 +217,19 @@ function App() {
     };
 
     try {
-      const feedPromises = [];
+      const tasks = [];
 
       for (const [category, feeds] of Object.entries(RSS_FEEDS)) {
         const feedUrls = Array.isArray(feeds) ? feeds : [feeds];
         
         feedUrls.forEach(feedUrl => {
-          feedPromises.push(
-            fetchRSS(feedUrl)
-              .then(items => {
-                successCount++;
-                const parsedItems = items.map((item) => ({
+          tasks.push(async () => {
+            try {
+              const items = await fetchRSS(feedUrl);
+              successCount++;
+              const parsedItems = items
+                .slice(0, 10)
+                .map((item) => ({
                   id: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   title: item.title,
                   description: item.description ? truncateText(stripHtml(item.description), 35) : 'Click to read more...',
@@ -234,19 +239,27 @@ function App() {
                   pubDate: new Date(item.pubDate),
                   originalContent: item.content || item.description
                 }));
-                upsertArticles(parsedItems);
-                return parsedItems;
-              })
-              .catch(err => {
-                console.error(`Failed to load feed: ${feedUrl}`, err);
-                failCount++;
-                return [];
-              })
-          );
+              upsertArticles(parsedItems);
+            } catch (err) {
+              console.error(`Failed to load feed: ${feedUrl}`, err);
+              failCount++;
+            }
+          });
         });
       }
 
-      await Promise.allSettled(feedPromises);
+      const runWithConcurrency = async (taskFns, limit = 5) => {
+        let index = 0;
+        const runners = new Array(Math.min(limit, taskFns.length)).fill(0).map(async () => {
+          while (index < taskFns.length) {
+            const current = index++;
+            await taskFns[current]();
+          }
+        });
+        await Promise.all(runners);
+      };
+
+      await runWithConcurrency(tasks, 5);
 
       const finalArticles = Array.from(articleMapRef.current.values());
 
@@ -256,25 +269,10 @@ function App() {
           lastFetched: Date.now()
         };
         localStorage.setItem('jplive24_news', JSON.stringify(newsData));
-        toast({
-          title: "News Updated",
-          description: `Loaded ${finalArticles.length} articles from ${successCount} sources. (${failCount} failed)`,
-        });
-      } else {
-        toast({
-          title: "Update Failed",
-          description: "Could not fetch new articles. Please check your internet connection.",
-          variant: "destructive"
-        });
       }
 
     } catch (error) {
       console.error('Global error fetching news:', error);
-      toast({
-        title: "Error",
-        description: "Something went wrong while updating news.",
-        variant: "destructive"
-      });
     } finally {
       setLoading(false);
     }
@@ -341,10 +339,6 @@ function App() {
 
   const handleLanguageChange = (language) => {
     setSelectedLanguage(language);
-    toast({
-      title: "Language Changed",
-      description: `Switched to ${getLanguageName(language)}`,
-    });
   };
 
   const getLanguageName = (code) => {
@@ -366,10 +360,13 @@ function App() {
       <Helmet>
         <title>JPLIVE24 - Latest News & Updates</title>
         <meta name="description" content="Stay updated with the latest news from JPLIVE24. Get breaking news, business updates, regional stories, technology insights, and entertainment news in multiple languages." />
+        <script type="application/ld+json">
+          {JSON.stringify(generateOrganizationSchema())}
+        </script>
       </Helmet>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-        <Header onRefresh={fetchNews} />
+        <Header onRefresh={() => fetchNews({ notify: true })} />
         
         <div className="container mx-auto px-4 py-6">
           <Routes>
@@ -388,6 +385,8 @@ function App() {
                     />
                   </div>
 
+                  <AdBanner slot="1234567890" />
+
                   <NewsGrid 
                     articles={filteredArticles}
                     loading={loading}
@@ -404,7 +403,6 @@ function App() {
         </div>
 
         <Footer />
-        <Toaster />
       </div>
     </>
   );

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Share2, Facebook, Twitter, Linkedin, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+// Toasts removed
+import { generateNewsArticleSchema } from '@/lib/schema';
+import { Helmet } from 'react-helmet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,44 +12,94 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// Translation cache to avoid repeated API calls
+const translationCache = new Map();
+
 const NewsCard = ({ article, selectedLanguage }) => {
   const [translatedTitle, setTranslatedTitle] = useState(article.title);
   const [translatedDescription, setTranslatedDescription] = useState(article.description);
-  const { toast } = useToast();
+  // Toasts removed
+  const isMountedRef = useRef(true);
+  const cardRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (selectedLanguage !== 'en') {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => setIsVisible(entry.isIntersecting));
+      },
+      { rootMargin: '200px' }
+    );
+    if (cardRef.current) observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (selectedLanguage !== 'en' && isVisible) {
       translateContent();
-    } else {
+    } else if (selectedLanguage === 'en') {
       setTranslatedTitle(article.title);
       setTranslatedDescription(article.description);
     }
-  }, [selectedLanguage, article]);
+  }, [selectedLanguage, article.id, isVisible]);
 
   const translateContent = async () => {
+    const cacheKey = `${article.id}-${selectedLanguage}`;
+    
+    // Check cache first
+    if (translationCache.has(cacheKey)) {
+      const cached = translationCache.get(cacheKey);
+      if (isMountedRef.current) {
+        setTranslatedTitle(cached.title);
+        setTranslatedDescription(cached.description);
+      }
+      return;
+    }
+
     try {
-      // Using Google Translate API (free tier via MyMemory)
+      // Using Google Translate API (free tier via MyMemory) with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const titleResponse = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(article.title)}&langpair=en|${selectedLanguage}`
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(article.title)}&langpair=en|${selectedLanguage}`,
+        { signal: controller.signal }
       );
       const titleData = await titleResponse.json();
       
       const descResponse = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(article.description)}&langpair=en|${selectedLanguage}`
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(article.description)}&langpair=en|${selectedLanguage}`,
+        { signal: controller.signal }
       );
       const descData = await descResponse.json();
+      
+      clearTimeout(timeoutId);
 
-      if (titleData.responseData) {
-        setTranslatedTitle(titleData.responseData.translatedText);
-      }
-      if (descData.responseData) {
-        setTranslatedDescription(descData.responseData.translatedText);
+      const translated = {
+        title: titleData.responseData?.translatedText || article.title,
+        description: descData.responseData?.translatedText || article.description,
+      };
+      
+      // Cache result
+      translationCache.set(cacheKey, translated);
+
+      if (isMountedRef.current) {
+        setTranslatedTitle(translated.title);
+        setTranslatedDescription(translated.description);
       }
     } catch (error) {
-      console.error('Translation error:', error);
+      console.warn('Translation error (using fallback):', error);
       // Fallback to original content if translation fails
-      setTranslatedTitle(article.title);
-      setTranslatedDescription(article.description);
+      if (isMountedRef.current) {
+        setTranslatedTitle(article.title);
+        setTranslatedDescription(article.description);
+      }
     }
   };
 
@@ -69,10 +121,6 @@ const NewsCard = ({ article, selectedLanguage }) => {
         break;
       case 'copy':
         navigator.clipboard.writeText(article.link);
-        toast({
-          title: "Link Copied!",
-          description: "Article link copied to clipboard.",
-        });
         return;
       default:
         return;
@@ -85,9 +133,15 @@ const NewsCard = ({ article, selectedLanguage }) => {
 
   return (
     <motion.div
+      ref={cardRef}
       whileHover={{ y: -8 }}
       className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden shadow-2xl border border-slate-700/50 hover:border-yellow-400/50 transition-all duration-300 group"
     >
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(generateNewsArticleSchema(article))}
+        </script>
+      </Helmet>
       <div className="relative h-48 overflow-hidden">
         <img
           src={article.image}
