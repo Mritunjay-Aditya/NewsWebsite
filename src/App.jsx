@@ -5,8 +5,8 @@ import Header from '@/components/Header';
 import CategoryFilter from '@/components/CategoryFilter';
 import NewsGrid from '@/components/NewsGrid';
 import LanguageSelector from '@/components/LanguageSelector';
+import MobileFilterMenu from '@/components/MobileFilterMenu';
 import Footer from '@/components/Footer';
-import AdBanner from '@/components/ads/AdBanner';
 // Toasts removed
 import { generateOrganizationSchema } from '@/lib/schema';
 import About from '@/pages/About';
@@ -374,18 +374,27 @@ function App() {
               path="/"
               element={
                 <>
-                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-                    <CategoryFilter 
-                      selectedCategory={selectedCategory}
-                      onCategoryChange={handleCategoryChange}
-                    />
-                    <LanguageSelector 
-                      selectedLanguage={selectedLanguage}
-                      onLanguageChange={handleLanguageChange}
-                    />
-                  </div>
+                  <div className="mb-8">
+                    <div className="lg:hidden">
+                      <MobileFilterMenu
+                        selectedCategory={selectedCategory}
+                        onCategoryChange={handleCategoryChange}
+                        selectedLanguage={selectedLanguage}
+                        onLanguageChange={handleLanguageChange}
+                      />
+                    </div>
 
-                  <AdBanner slot="1234567890" />
+                    <div className="hidden lg:flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                      <CategoryFilter
+                        selectedCategory={selectedCategory}
+                        onCategoryChange={handleCategoryChange}
+                      />
+                      <LanguageSelector
+                        selectedLanguage={selectedLanguage}
+                        onLanguageChange={handleLanguageChange}
+                      />
+                    </div>
+                  </div>
 
                   <NewsGrid 
                     articles={filteredArticles}

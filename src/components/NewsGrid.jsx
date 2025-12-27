@@ -6,10 +6,23 @@ import { Loader2 } from 'lucide-react';
 
 const NewsGrid = ({ articles, loading, selectedLanguage }) => {
   const [displayCount, setDisplayCount] = useState(18);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     setDisplayCount(18);
   }, [articles]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)'); // Tailwind lg
+    const update = () => setIsDesktop(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   if (loading) {
     return (
@@ -29,6 +42,7 @@ const NewsGrid = ({ articles, loading, selectedLanguage }) => {
   }
 
   const visible = articles.slice(0, displayCount);
+  const adInterval = isDesktop ? 6 : 4;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -41,8 +55,8 @@ const NewsGrid = ({ articles, loading, selectedLanguage }) => {
           >
             <NewsCard article={article} selectedLanguage={selectedLanguage} />
           </motion.div>
-          {/* Show ad every 6 articles */}
-          {(index + 1) % 6 === 0 && index < visible.length - 1 && (
+          {/* Show ad after every N articles (desktop: 6, mobile: 4) */}
+          {(index + 1) % adInterval === 0 && index < visible.length - 1 && (
             <motion.div
               key={`ad-${index}`}
               className="col-span-1 md:col-span-2 lg:col-span-3"
@@ -50,7 +64,7 @@ const NewsGrid = ({ articles, loading, selectedLanguage }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: index * 0.1 + 0.2 }}
             >
-              <AdInFeed slot={`ad-infeed-${index}`} />
+              <AdInFeed />
             </motion.div>
           )}
         </React.Fragment>
