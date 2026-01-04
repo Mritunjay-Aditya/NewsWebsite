@@ -1,6 +1,6 @@
 import React from 'react';
 
-const AdSidebar = ({ slot = '1234567890' }) => {
+const MobileBottomBanner = ({ slot = '1234567890' }) => {
   const insRef = React.useRef(null);
   const [visible, setVisible] = React.useState(false);
 
@@ -35,23 +35,22 @@ const AdSidebar = ({ slot = '1234567890' }) => {
   if (!visible) return null;
 
   return (
-    <aside className="hidden lg:block sticky top-4">
-      <ins
-        ref={insRef}
-        className="adsbygoogle"
-        style={{ 
-          display: 'block',
-          minWidth: '300px',
-          width: '300px',
-          minHeight: '600px',
-        }}
-        data-ad-client="ca-pub-3343641949304708"
-        data-ad-slot={slot}
-        data-ad-format="vertical"
-        data-full-width-responsive="false"
-      ></ins>
-    </aside>
+    <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
+      <div className="mx-auto max-w-screen-xl px-4 pb-2">
+        <div className="rounded-xl overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm">
+          <ins
+            ref={insRef}
+            className="adsbygoogle"
+            style={{ display: 'block' }}
+            data-ad-client="ca-pub-3343641949304708"
+            data-ad-slot={slot}
+            data-ad-format="auto"
+            data-full-width-responsive="true"
+          ></ins>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default React.memo(AdSidebar);
+export default React.memo(MobileBottomBanner);

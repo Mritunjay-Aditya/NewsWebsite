@@ -9,6 +9,8 @@ import MobileFilterMenu from '@/components/MobileFilterMenu';
 import Footer from '@/components/Footer';
 // Toasts removed
 import { generateOrganizationSchema } from '@/lib/schema';
+import AdSidebar from '@/components/ads/AdSidebar';
+import MobileBottomBanner from '@/components/ads/MobileBottomBanner';
 import About from '@/pages/About';
 import Disclaimer from '@/pages/Disclaimer';
 import Contact from '@/pages/Contact';
@@ -374,33 +376,44 @@ function App() {
               path="/"
               element={
                 <>
-                  <div className="mb-8">
-                    <div className="lg:hidden">
-                      <MobileFilterMenu
-                        selectedCategory={selectedCategory}
-                        onCategoryChange={handleCategoryChange}
-                        selectedLanguage={selectedLanguage}
-                        onLanguageChange={handleLanguageChange}
-                      />
+                  <div className="pb-24 lg:pb-0">
+                    <div className="mb-8">
+                      <div className="lg:hidden">
+                        <MobileFilterMenu
+                          selectedCategory={selectedCategory}
+                          onCategoryChange={handleCategoryChange}
+                          selectedLanguage={selectedLanguage}
+                          onLanguageChange={handleLanguageChange}
+                        />
+                      </div>
+
+                      <div className="hidden lg:flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                        <CategoryFilter
+                          selectedCategory={selectedCategory}
+                          onCategoryChange={handleCategoryChange}
+                        />
+                        <LanguageSelector
+                          selectedLanguage={selectedLanguage}
+                          onLanguageChange={handleLanguageChange}
+                        />
+                      </div>
                     </div>
 
-                    <div className="hidden lg:flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                      <CategoryFilter
-                        selectedCategory={selectedCategory}
-                        onCategoryChange={handleCategoryChange}
-                      />
-                      <LanguageSelector
-                        selectedLanguage={selectedLanguage}
-                        onLanguageChange={handleLanguageChange}
-                      />
+                    <div className="flex flex-col lg:flex-row gap-6">
+                      <div className="flex-1 min-w-0">
+                        <NewsGrid
+                          articles={filteredArticles}
+                          loading={loading}
+                          selectedLanguage={selectedLanguage}
+                        />
+                      </div>
+                      <div className="hidden lg:block shrink-0">
+                        <AdSidebar />
+                      </div>
                     </div>
+
+                    <MobileBottomBanner />
                   </div>
-
-                  <NewsGrid 
-                    articles={filteredArticles}
-                    loading={loading}
-                    selectedLanguage={selectedLanguage}
-                  />
                 </>
               }
             />
